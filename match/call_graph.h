@@ -93,6 +93,19 @@ struct EdgeFeature {
 
 using EdgeFeatures = std::vector<EdgeFeature>;
 
+// Every edge feature of a call graph, and for each call graph vertex the
+// features of the edges that start or end there. A matching step asks for the
+// features around a handful of functions far more often than for all of them,
+// and the second table answers that without reading the first one through.
+struct EdgeFeatureIndex {
+  EdgeFeatures features;
+  // The features incident to vertex v are
+  // incident[offsets[v]] .. incident[offsets[v + 1] - 1], as indices into
+  // `features`, in ascending order.
+  std::vector<uint32_t> offsets;
+  std::vector<uint32_t> incident;
+};
+
 // A MatchingStep class that serves as the base class for all edge-based
 // matching steps that use the MD Index. It takes care of attaching EdgeFeature
 // as attributes to the call graph edges. These features will be cached
@@ -121,14 +134,18 @@ class BaseMatchingStepEdgesMdIndex : public MatchingStep {
  private:
   enum CallGraphType { kPrimaryCallGraph, kSecondaryCallGraph };
 
-  static void FeatureDestructor(EdgeFeatures* feature);
+  static void FeatureDestructor(EdgeFeatureIndex* feature);
 
   void GetUnmatchedEdgesMdIndex(MatchingContext* context, CallGraphType type,
                                 const FlowGraphs& flow_graphs,
                                 EdgeFeatures* edges);
 
+  // Fills in, for each call graph vertex, the features of its edges.
+  static void BuildIncidence(const CallGraph& call_graph,
+                             EdgeFeatureIndex* index);
+
   // This functions takes all features and returns only currently relevant ones.
-  void FilterResults(const EdgeFeatures& all_features,
+  void FilterResults(const EdgeFeatureIndex& index,
                      const CallGraph& call_graph, const FlowGraphs& flow_graphs,
                      EdgeFeatures* edges);
 
